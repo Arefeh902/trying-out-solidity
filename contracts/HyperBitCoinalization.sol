@@ -55,10 +55,6 @@ contract HyperBitCoinalization {
 		owenr = msg.sender;
 	}
 
-	function pushToAcc(Acc[] _acc, Acc) private {
-		_acc.push(Acc);
-	}
-
 	function depositBTC(uint amount) payable public {
 		// transfer BTC to contract
 		IERC20Upgradeable(btc).safeTransfer(address(this), amount);
@@ -68,7 +64,7 @@ contract HyperBitCoinalization {
 		btcTotal += amount;
 
 		// update user BTC accumulator
-		pushToAcc(btcAcc[msg.sender], Acc(amount, btcBalance, btcTotal));
+		btcAcc[msg.sender].push(Acc(amount, btcBalance, btcTotal));
 
 	}
 
@@ -81,7 +77,7 @@ contract HyperBitCoinalization {
 		usdcTotal += amount;
 
 		// update user USDC accumulator
-		pushToAcc(usdcAcc[msg.sender], Acc(amount, usdcBalance[msg.sender], usdcTotal));
+		usdcAcc[msg.sender].push(Acc(amount, usdcBalance[msg.sender], usdcTotal));
 
 	}
 

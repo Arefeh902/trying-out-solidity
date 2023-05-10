@@ -34,6 +34,8 @@ contract HyperBitCoinalization {
 	mapping (address => uint) btcBalance;
 	mapping (address => uint) usdcBalance;
 
+	mapping (address => bool) claimed;
+
 	uint256 public btcTotal;
 	uint256 public usdcTotal;
 
@@ -84,15 +86,23 @@ contract HyperBitCoinalization {
 	}
 
 	function btcInBet() public returns (uint256) {
-		// TODO: error handling
-		uint256 _btc = Math.min(btcTotal, Math.div(usdcTotal, conversionRatio));
-		return binarySearch(_btc, btcAcc[msg.sender]);
+		return _btcInBet(msg.sender);
 	}
 
 	function usdcInBet() public returns (uint256) {
+		return _usdcInBet(msg.sender);
+	}
+
+	function _btcInBet(address sender) internal returns (uint256) {
+		// TODO: error handling
+		uint256 _btc = Math.min(btcTotal, Math.div(usdcTotal, conversionRatio));
+		return binarySearch(_btc, btcAcc[sender]);
+	}
+
+	function _usdcInBet(address sender) internal returns (uint256) {
 		// TODO: error handling
 		uint256 _usdc = Math.min(usdcTotal, Math.mul(usdcTotal, conversionRatio));
-		return binarySearch(_usdc, usdcAcc[msg.sender]);
+		return binarySearch(_usdc, usdcAcc[sender]);
 	}
 
 	function binarySearch(uint256 total, Acc[] acc) internal returns (uint 256){
@@ -120,7 +130,7 @@ contract HyperBitCoinalization {
 	}
 
 	function setWinnerToken() public {
-		if(winnerToken != address(0)) revert;
+		if(winnerToken != address(0)) return;
 		
 		uint8 decimals = Oracle(oracle).decimals();
 		uint256 answer = Oracle(oracle).latestAnswer();
@@ -128,5 +138,22 @@ contract HyperBitCoinalization {
 
 		if(answer >= treshold) winnerToken = btc;
 		else if(block.timestamp >= endTimeStamp) winnerToken = usdc;
+	}
+
+	function claim() public {
+		if(winnerToken == address(0)) return;
+		if(claimed[msg.sender]) return;
+
+		if(winnerToken == btc){
+			uint256 btcAmount = _btcInBet(msg.sender);
+			IERC20Upgradeable(btc).safeTransfer(btcAmount);
+			IERC20Upgradeable(usdc).safeTransfer(Math.mul(btcAmount, conversionRatio));
+		}else if(winnerToken == usdc){
+			uint256 usdcAmount = _usdcInBet(msg.sender);
+			IERC20Upgradeable(usdc).safeTransfer(usdcAmount);
+			IERC20Upgradeable(btc).safeTransfer(Math.div(usdcAmount, conversionRatio));
+		}
+		
+		claimed[msg.sender] = true;
 	}
 }

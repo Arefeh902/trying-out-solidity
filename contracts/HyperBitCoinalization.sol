@@ -14,7 +14,7 @@ interface Oracle {
 struct Acc{
 	uint256 amount;
 	uint256 userTotal;
-	uint245 tokenTotal;
+	uint256 tokenTotal;
 }
 
 contract HyperBitCoinalization {
@@ -26,7 +26,8 @@ contract HyperBitCoinalization {
 
 	uint immutable conversionRatio;
 	uint immutable endTimeStamp;
-	address owner;
+
+	address public immutable owner;
 
 	mapping (address => Acc[]) btcAcc;
 	mapping (address => Acc[]) usdcAcc;
@@ -51,13 +52,11 @@ contract HyperBitCoinalization {
 
 		btcTotal = 0;
 		usdcTotal = 0;
-
-		owenr = msg.sender;
 	}
 
-	function depositBTC(uint amount) payable public {
+	function depositBTC(uint amount) external {
 		// transfer BTC to contract
-		IERC20Upgradeable(btc).safeTransfer(address(this), amount);
+		IERC20Upgradeable(btc).safeTransferFrom(msg.sender, address(this), amount);
 		
 		// update balances
 		btcBalance[msg.sender] += amount;
@@ -68,9 +67,9 @@ contract HyperBitCoinalization {
 
 	}
 
-	function depositUSDC(uint amount) external payable {
+	function depositUSDC(uint amount) external {
 		// transfer USDC to contract
-		IERC20Upgradeable(usdc).safeTransfer(address(this), amount);
+		IERC20Upgradeable(usdc).safeTransferFrom(msg.sender, address(this), amount);
 
 		// update balances
 		usdcBalance[msg.sender] += amount;
@@ -81,27 +80,27 @@ contract HyperBitCoinalization {
 
 	}
 
-	function btcInBet() public returns (uint256) {
+	function btcInBet() public view returns (uint256) {
 		return _btcInBet(msg.sender);
 	}
 
-	function usdcInBet() public returns (uint256) {
+	function usdcInBet() public view returns (uint256) {
 		return _usdcInBet(msg.sender);
 	}
 
 	function _btcInBet(address sender) internal returns (uint256) {
 		// TODO: error handling
-		uint256 _btc = Math.min(btcTotal, Math.div(usdcTotal, conversionRatio));
+		uint256 _btc = Math.min(btcTotal, usdcTotal / conversionRatio);
 		return binarySearch(_btc, btcAcc[sender]);
 	}
 
 	function _usdcInBet(address sender) internal returns (uint256) {
 		// TODO: error handling
-		uint256 _usdc = Math.min(usdcTotal, Math.mul(usdcTotal, conversionRatio));
+		uint256 _usdc = Math.min(usdcTotal, usdcTotal * conversionRatio);
 		return binarySearch(_usdc, usdcAcc[sender]);
 	}
 
-	function binarySearch(uint256 total, Acc[] acc) internal returns (uint 256){
+	function binarySearch(uint256 total, Acc[] memory acc) internal returns (uint 256){
 		uint len = acc.length;
 		uint start = 0;
 		uint end = len - 1;
@@ -136,18 +135,18 @@ contract HyperBitCoinalization {
 		else if(block.timestamp >= endTimeStamp) winnerToken = usdc;
 	}
 
-	function claim() public {
+	function claim() external {
 		if(winnerToken == address(0)) return;
 		if(claimed[msg.sender]) return;
 
 		if(winnerToken == btc){
 			uint256 btcAmount = _btcInBet(msg.sender);
 			IERC20Upgradeable(btc).safeTransfer(btcAmount);
-			IERC20Upgradeable(usdc).safeTransfer(Math.mul(btcAmount, conversionRatio));
+			IERC20Upgradeable(usdc).safeTransfer(btcAmount * conversionRatio);
 		}else if(winnerToken == usdc){
 			uint256 usdcAmount = _usdcInBet(msg.sender);
 			IERC20Upgradeable(usdc).safeTransfer(usdcAmount);
-			IERC20Upgradeable(btc).safeTransfer(Math.div(usdcAmount, conversionRatio));
+			IERC20Upgradeable(btc).safeTransfer(usdcAmount / conversionRatio);
 		}
 		
 		claimed[msg.sender] = true;
